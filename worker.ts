@@ -37,6 +37,7 @@ import { runAccountRetention } from "./src/lib/accounts/deletion";
 import { runJmapChangeRetention } from "./src/lib/jmap/changes";
 import { runFollowUpReminders } from "./src/lib/follow-ups/service";
 import { runCalendarReminders } from "./src/lib/calendar/reminders";
+import { handleWebdav } from "./src/lib/drive/webdav";
 export { RealtimeHub } from "./src/lib/realtime/hub";
 
 export default {
@@ -46,6 +47,11 @@ export default {
 		const d1Session = withD1ReadSession(rawEnv, request);
 		const env = withDatabase(withStorage(d1Session?.env ?? rawEnv));
 		const url = new URL(request.url);
+		// WebDAV mounts (Explorer, Finder, davfs) use verbs Next cannot route, so
+		// they are handled ahead of the app; the shared handler does the auth.
+		if (url.pathname === "/webdav" || url.pathname.startsWith("/webdav/")) {
+			return handleWebdav(request, env);
+		}
 		if (url.pathname === "/api/realtime") {
 			if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
 				return new Response("Expected WebSocket upgrade", { status: 426 });

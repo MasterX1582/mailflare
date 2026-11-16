@@ -204,6 +204,20 @@ export default function AccountPermissionsPage() {
 								/>
 							</td>
 						</tr>
+						<tr>
+							<td className="px-5 py-4">
+								<p className="text-sm font-semibold text-neutral-900">{t("account.meet")}</p>
+								<p className="mt-1 text-xs text-neutral-500">{t("account.permissions.meetHint")}</p>
+							</td>
+							<td className="w-28 px-5 py-4 text-center">
+								<Checkbox
+									aria-label={t("account.permissions.allowMeet")}
+									checked={account?.meetEnabled ?? true}
+									disabled={!account || !editable}
+									onChange={(event) => account && setAccount({ ...account, meetEnabled: event.target.checked })}
+								/>
+							</td>
+						</tr>
 					</tbody>
 				</table>
 			</section>

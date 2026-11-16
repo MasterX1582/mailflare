@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { fetchSessionInfo, peekSessionInfo } from "@/hooks/use-current-user";
 import type { AuthGuardProps } from "./auth-guard-types";
 import { LoadingTransition } from "@/components/loading-transition";
+import { MeetCallListener } from "@/components/meet/call-listener";
 import { saveUserTimeZonePreference } from "@/lib/time/client";
 
 export function AuthGuard({ children, mode = "protected", requireMailbox, requireRole, requirePrimary, requireFeature, allowAuthenticated }: AuthGuardProps) {
@@ -62,7 +63,8 @@ export function AuthGuard({ children, mode = "protected", requireMailbox, requir
 				}
 
 				if ((requireFeature === "calendar" && data.user?.calendarEnabled === false)
-					|| (requireFeature === "drive" && data.user?.driveEnabled === false)) {
+					|| (requireFeature === "drive" && data.user?.driveEnabled === false)
+					|| (requireFeature === "meet" && data.user?.meetEnabled === false)) {
 					router.replace("/inbox");
 					return;
 				}
@@ -89,5 +91,10 @@ export function AuthGuard({ children, mode = "protected", requireMailbox, requir
 	}, []);
 
 	if (mode === "public") return <>{children}</>;
-	return <LoadingTransition ready={authorized}>{children}</LoadingTransition>;
+	return (
+		<LoadingTransition ready={authorized}>
+			{children}
+			{authorized && <MeetCallListener />}
+		</LoadingTransition>
+	);
 }

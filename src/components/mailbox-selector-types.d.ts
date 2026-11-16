@@ -8,6 +8,7 @@ export type MailboxSelectorUser = {
 	hasAvatar: boolean;
 	calendarEnabled: boolean;
 	driveEnabled: boolean;
+	meetEnabled: boolean;
 };
 
 export type MailboxSelectorProps = {

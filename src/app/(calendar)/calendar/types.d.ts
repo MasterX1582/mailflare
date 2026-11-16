@@ -22,6 +22,8 @@ export type CalendarEvent = {
   inviteMessageId?: string | null;
   /** JSON map of guest address to accepted, tentative or declined. */
   attendeeResponses?: string | null;
+  /** Meet call attached to this event; the calendar shows a Join button. */
+  meetingId?: string | null;
 };
 
 export type CalendarView = "month" | "week" | "day";

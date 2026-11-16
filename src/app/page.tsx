@@ -43,6 +43,7 @@ export default async function HomePage() {
         hasAvatar: !!sessionUser.avatarKey,
         calendarEnabled: sessionUser.calendarEnabled,
         driveEnabled: sessionUser.driveEnabled,
+        meetEnabled: sessionUser.meetEnabled,
       }
     : null;
 

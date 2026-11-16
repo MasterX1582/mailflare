@@ -25,6 +25,7 @@ export function listAccountsForAdmin(db: Db) {
 			canManageUsers: users.canManageUsers,
 			calendarEnabled: users.calendarEnabled,
 			driveEnabled: users.driveEnabled,
+			meetEnabled: users.meetEnabled,
 			createdAt: users.createdAt,
 			lastSignInAt: users.lastSignInAt,
 			deletedAt: users.deletedAt,
@@ -83,6 +84,7 @@ export function accountListItemFromUser(user: {
 	canManageUsers?: boolean;
 	calendarEnabled?: boolean;
 	driveEnabled?: boolean;
+	meetEnabled?: boolean;
 	createdAt: Date;
 	lastSignInAt?: Date | null;
 	deletedAt?: Date | null;
@@ -101,6 +103,7 @@ export function accountListItemFromUser(user: {
 		canManageUsers: !!user.canManageUsers,
 		calendarEnabled: user.calendarEnabled !== false,
 		driveEnabled: user.driveEnabled !== false,
+		meetEnabled: user.meetEnabled !== false,
 		createdAt: user.createdAt,
 		lastSignInAt: user.lastSignInAt ?? null,
 		deletedAt: user.deletedAt ?? null,

@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { DragEvent, PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import toast, { Toaster } from "react-hot-toast";
-import { AlignLeft, CalendarPlus2, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, MapPin, Palette, Bell, Plus, Repeat2, Trash2, UsersRound, X } from "@/components/icons";
+import { AlignLeft, CalendarPlus2, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, MapPin, Palette, Bell, Plus, Repeat2, Trash2, UsersRound, Video, X } from "@/components/icons";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import { DEFAULT_FOLDER_COLOR, FOLDER_COLOR_OPTIONS } from "@/lib/folders/colors
 import type { TranslationKey } from "@/lib/i18n/types";
 import type { CalendarRepeat } from "@/lib/calendar/types";
 import { useLanguage } from "@/components/language-provider";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { folderColorKeys } from "@/lib/folders/color-keys";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { useSidebar } from "@/components/sidebar-state";
@@ -48,6 +49,8 @@ const getServerHeaderSlot = () => null;
 
 export default function CalendarPage() {
   const { t } = useLanguage();
+  const user = useCurrentUser();
+  const meetEnabled = user?.meetEnabled !== false;
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [eventsVersion, setEventsVersion] = useState(0);
@@ -91,6 +94,7 @@ export default function CalendarPage() {
   const [closingEventEditor, setClosingEventEditor] = useState(false);
   const [guests, setGuests] = useState("");
   const [location, setLocation] = useState("");
+  const [addMeeting, setAddMeeting] = useState(false);
   const [description, setDescription] = useState("");
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
   const guestReplies = (() => {
@@ -192,6 +196,7 @@ export default function CalendarPage() {
     setReminderMinutes(null);
     setGuests("");
     setLocation("");
+    setAddMeeting(false);
     setDescription("");
     setStartsAt(formatLocalDateTime(start));
     setEndsAt(formatLocalDateTime(new Date(start.getTime() + 60 * 60_000)));
@@ -227,6 +232,7 @@ export default function CalendarPage() {
           timeZone: getUserTimeZone(),
           description,
           location,
+          addMeetCall: addMeeting || undefined,
           mailboxId: selectedMailbox?.id,
           from: selectedMailbox?.senderAddresses?.[0] ??
             (selectedMailbox ? `${selectedMailbox.localPart}@${selectedMailbox.hostname}` : ""),
@@ -276,6 +282,7 @@ export default function CalendarPage() {
     setReminderMinutes(event.reminderMinutes ?? null);
     setRepeatDays(event.repeat === "weekdays" ? parseCalendarRepeatDays(event.repeatDays) : DEFAULT_REPEAT_DAYS);
     setLocation(event.location ?? "");
+    setAddMeeting(false);
     setDescription(event.description ?? "");
     setStartsAt(formatLocalDateTime(new Date(event.startsAt)));
     setEndsAt(formatLocalDateTime(new Date(event.endsAt)));
@@ -658,6 +665,21 @@ export default function CalendarPage() {
                 <MapPin aria-hidden="true" className="h-5 w-5 text-neutral-600" />
                 <Input value={location} onChange={(event) => setLocation(event.target.value)} placeholder={t("calendar.addLocation")} aria-label={t("calendar.location")} className={eventFieldClass} />
               </div>
+              {meetEnabled && (
+                <div className="grid grid-cols-[24px_minmax(0,1fr)] items-center gap-3">
+                  <Video aria-hidden="true" className="h-5 w-5 text-neutral-600" />
+                  {editing?.meetingId ? (
+                    <a href={`/meet/call/${editing.meetingId}`} className="inline-flex items-center gap-2 px-2 text-sm font-medium text-blue-600 hover:underline">
+                      {t("meet.joinMeeting")}
+                    </a>
+                  ) : (
+                    <label className="flex cursor-pointer items-center gap-2 px-2 text-sm text-neutral-700">
+                      <input type="checkbox" checked={addMeeting} onChange={(event) => setAddMeeting(event.target.checked)} className="h-4 w-4 rounded border-neutral-300 text-blue-600" />
+                      {t("meet.addMeetCall")}
+                    </label>
+                  )}
+                </div>
+              )}
               <div className="grid grid-cols-[24px_minmax(0,1fr)] items-start gap-3">
                 <AlignLeft aria-hidden="true" className="mt-2 h-5 w-5 text-neutral-600" />
                 <Textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder={t("calendar.addDescription")} aria-label={t("calendar.description")} rows={Math.max(1, description.split("\n").length)} className={clsx("min-h-9 border-transparent bg-transparent px-2 py-2 shadow-none hover:bg-white/60 focus:min-h-24 focus:resize-y focus:border-blue-600 focus:bg-white focus-visible:ring-0", description ? "min-h-24 resize-y" : "resize-none")} />

@@ -37,6 +37,7 @@ export async function GET(request: Request) {
 			canManageUsers: user.canManageUsers,
 			calendarEnabled: user.calendarEnabled,
 			driveEnabled: user.driveEnabled,
+			meetEnabled: user.meetEnabled,
 			keyboardShortcutsEnabled: user.keyboardShortcutsEnabled,
 			spamProtectionEnabled: user.spamProtectionEnabled,
 			showFullRecipientAddresses: user.showFullRecipientAddresses,

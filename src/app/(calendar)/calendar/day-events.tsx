@@ -4,6 +4,7 @@ import { Fragment, memo, useMemo } from "react";
 import type { DragEvent, PointerEvent as ReactPointerEvent } from "react";
 import clsx from "clsx";
 import { useLanguage } from "@/components/language-provider";
+import { Video } from "@/components/icons";
 import { normalizeCalendarColor } from "@/lib/calendar/colors";
 import { addDays, dateKey, EVENT_COLOR_CLASSES, eventPosition, formatEventRange, isPendingInvite, PAST_EVENT_COLOR_CLASSES, PENDING_EVENT_CLASSES } from "./utils";
 import type { CalendarEvent, EventResizeEdge } from "./types";
@@ -44,7 +45,12 @@ function DayEventsImpl({ day, events, currentTime, busy, activeEventId, onEdit, 
 							className={`absolute left-1 right-1 z-10 flex cursor-move flex-col items-start justify-start overflow-hidden rounded-lg pr-2 pl-4 text-left hover:brightness-95 ${isPendingInvite(event) ? PENDING_EVENT_CLASSES : isPastEvent ? PAST_EVENT_COLOR_CLASSES[color] : EVENT_COLOR_CLASSES[color]} ${position.height >= 20 ? "py-1.5" : "py-0"} ${activeEventId === event.id ? "opacity-40" : ""}`}
 							style={{ top: position.top, height: position.height }}>
 							<span className="absolute top-1 left-1 block h-[calc(100%-8px)] w-1 rounded-xl bg-current" />
-							{position.height >= 15 && <span className="block w-full truncate text-[12px] font-semibold leading-4">{event.title}</span>}
+							{position.height >= 15 && (
+								<span className="flex w-full items-center gap-1 text-[12px] font-semibold leading-4">
+									{event.meetingId && <Video aria-hidden="true" className="h-3 w-3 shrink-0" />}
+									<span className="truncate">{event.title}</span>
+								</span>
+							)}
 							{position.height >= 34 && <span className="block w-full truncate text-[11px] leading-4 opacity-70">{range}</span>}
 						</button>
 						{!isPendingInvite(event) && edges.map((edge: EventResizeEdge) => (

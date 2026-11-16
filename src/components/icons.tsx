@@ -22,6 +22,11 @@ import {
 	CalendarAdd02Icon as HugeCalendarAdd02Icon,
 	CalendarClockIcon as HugeCalendarClockIcon,
 	CalendarDaysIcon as HugeCalendarDaysIcon,
+	Call02Icon as HugeCall02Icon,
+	CallEnd01Icon as HugeCallEnd01Icon,
+	CallIncoming02Icon as HugeCallIncoming02Icon,
+	CallMissed02Icon as HugeCallMissed02Icon,
+	CallOutgoing02Icon as HugeCallOutgoing02Icon,
 	CameraIcon as HugeCameraIcon,
 	CancelCircleIcon as HugeCancelCircleIcon,
 	CheckIcon as HugeCheckIcon,
@@ -35,6 +40,7 @@ import {
 	Clock03Icon as HugeClock03Icon,
 	ClockIcon as HugeClockIcon,
 	CloudIcon as HugeCloudIcon,
+	ComputerScreenShareIcon as HugeComputerScreenShareIcon,
 	CloudUploadIcon as HugeCloudUploadIcon,
 	CopyIcon as HugeCopyIcon,
 	CornerDownLeftIcon as HugeCornerDownLeftIcon,
@@ -70,6 +76,9 @@ import {
 	InfoIcon as HugeInfoIcon,
 	ItalicIcon as HugeItalicIcon,
 	KeyRoundIcon as HugeKeyRoundIcon,
+	Message01Icon as HugeMessage01Icon,
+	Mic01Icon as HugeMic01Icon,
+	MicOff01Icon as HugeMicOff01Icon,
 	KeyboardIcon as HugeKeyboardIcon,
 	Layout2ColumnIcon as HugeLayout2ColumnIcon,
 	Link02Icon as HugeLink02Icon,
@@ -87,6 +96,7 @@ import {
 	MailPlusIcon as HugeMailPlusIcon,
 	MailSend01Icon as HugeMailSend01Icon,
 	MapPinIcon as HugeMapPinIcon,
+	Pin02Icon as HugePin02Icon,
 	ExpandIcon as HugeMaximize02Icon,
 	CollapseIcon as HugeMinimize02Icon,
 	MinusIcon as HugeMinusIcon,
@@ -142,6 +152,8 @@ import {
 	UserRoundIcon as HugeUserRoundIcon,
 	UsersIcon as HugeUsersIcon,
 	UsersRoundIcon as HugeUsersRoundIcon,
+	Video01Icon as HugeVideo01Icon,
+	VideoOffIcon as HugeVideoOffIcon,
 	WebhookIcon as HugeWebhookIcon,
 	WrenchIcon as HugeWrenchIcon,
 	XIcon as HugeXIcon,
@@ -207,6 +219,17 @@ export const CalendarClock = createIcon(HugeCalendarClockIcon, "CalendarClock");
 export const CalendarDays = createIcon(HugeCalendarDaysIcon, "CalendarDays");
 export const CalendarPlus2 = createIcon(HugeCalendarAdd02Icon, "CalendarPlus2");
 export const Camera = createIcon(HugeCameraIcon, "Camera");
+export const Chat = createIcon(HugeMessage01Icon, "Chat");
+export const Mic = createIcon(HugeMic01Icon, "Mic");
+export const MicOff = createIcon(HugeMicOff01Icon, "MicOff");
+export const Phone = createIcon(HugeCall02Icon, "Phone");
+export const PhoneOff = createIcon(HugeCallEnd01Icon, "PhoneOff");
+export const PhoneIncoming = createIcon(HugeCallIncoming02Icon, "PhoneIncoming");
+export const PhoneMissed = createIcon(HugeCallMissed02Icon, "PhoneMissed");
+export const PhoneOutgoing = createIcon(HugeCallOutgoing02Icon, "PhoneOutgoing");
+export const ScreenShare = createIcon(HugeComputerScreenShareIcon, "ScreenShare");
+export const Video = createIcon(HugeVideo01Icon, "Video");
+export const VideoOff = createIcon(HugeVideoOffIcon, "VideoOff");
 export const Check = createIcon(HugeCheckIcon, "Check");
 export const CheckCircle2 = createIcon(HugeCheckmarkCircle02Icon, "CheckCircle2");
 export const CheckSquare2 = createIcon(HugeCheckmarkSquare02Icon, "CheckSquare2");
@@ -272,6 +295,7 @@ export const MailOpen = createIcon(HugeMailOpenIcon, "MailOpen");
 export const MailSend01 = createIcon(HugeMailSend01Icon, "MailSend01");
 export const MailPlus = createIcon(HugeMailPlusIcon, "MailPlus");
 export const MapPin = createIcon(HugeMapPinIcon, "MapPin");
+export const Pin = createIcon(HugePin02Icon, "Pin");
 export const Maximize2 = createIcon(HugeMaximize02Icon, "Maximize2");
 export const Menu: LucideIcon = HamburgerMenuIcon;
 export const Minimize2 = createIcon(HugeMinimize02Icon, "Minimize2");

@@ -12,6 +12,8 @@ import { DEFAULT_REPEAT_DAYS, normalizeCalendarRepeat, normalizeCalendarRepeatDa
 import type { CalendarEventInput } from "./types";
 import { getRequestTimeZone, normalizeTimeZone } from "@/lib/time/utils";
 import { authorizeCalendarRequest, calendarKeyCanSendInvitations } from "@/lib/calendar/api-auth";
+import { createMeeting, userIdsForEmails } from "@/lib/meet/data";
+import { notifyMeetUsers } from "@/lib/meet/realtime";
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -36,6 +38,7 @@ export async function POST(request: Request) {
 	const repeatDays = repeat === "weekdays" ? normalizeCalendarRepeatDays(input.repeatDays ?? DEFAULT_REPEAT_DAYS) : [];
 	if (repeat === "weekdays" && repeatDays.length === 0) return NextResponse.json({ error: "Choose at least one weekday" }, { status: 400 });
 	const attendees = (input.attendees ?? []).map((email) => email.trim()).filter((email) => /^\S+@\S+\.\S+$/.test(email));
+	if (attendees.length > 50) return NextResponse.json({ error: "Too many attendees" }, { status: 400 });
 	if (attendees.length && input.mailboxId && !calendarKeyCanSendInvitations(key, input.mailboxId)) return NextResponse.json({ error: "Sending invitations requires mail send permission for this mailbox" }, { status: 403 });
 	const event = { id: newId("evt"), userId: user.id, mailboxId: input.mailboxId ?? null, title: input.title.trim(), description: input.description?.trim() ?? "", location: input.location?.trim() ?? "", attendees: JSON.stringify(attendees), color: normalizeCalendarColor(input.color), repeat, repeatDays: JSON.stringify(repeatDays), repeatAnchorDay: repeat === "monthly" && Number.isInteger(input.repeatAnchorDay) && input.repeatAnchorDay! >= 1 && input.repeatAnchorDay! <= 31 ? input.repeatAnchorDay : null, reminderMinutes: normalizeReminderMinutes(input.reminderMinutes), startsAt, endsAt };
 	const savedEvent = { ...event, timeZone: input.timeZone ? normalizeTimeZone(input.timeZone) : getRequestTimeZone(request, user.timeZone) };
@@ -43,6 +46,20 @@ export async function POST(request: Request) {
 	if (attendees.length && input.mailboxId) {
 		const calendarFile = createCalendarInvitation({ ...event, uid: event.id, organizer: input.from || undefined, attendees });
 		await Promise.all(attendees.map((to) => sendEmail(env, { userId: user.id, mailboxId: input.mailboxId!, from: input.from ?? "", to, subject: `Invitation: ${event.title}`, text: event.description || `You are invited to ${event.title}.`, attachments: [{ filename: "invite.ics", type: "text/calendar; charset=utf-8", content: calendarFile }] })));
+	}
+	if (input.addMeetCall && user.meetEnabled) {
+		const attendeeIds = await userIdsForEmails(getDb(env), attendees);
+		const meeting = await createMeeting(getDb(env), user, {
+			title: event.title,
+			kind: "scheduled",
+			calendarEventId: event.id,
+			scheduledStartAt: savedEvent.startsAt,
+			scheduledEndAt: savedEvent.endsAt,
+			participantIds: attendeeIds,
+		});
+		if (attendeeIds.length) await notifyMeetUsers(env, attendeeIds, { type: "meet.conversation", conversationId: meeting.conversationId!, event: "created" });
+		await getDb(env).update(calendarEvents).set({ meetingId: meeting.id }).where(eq(calendarEvents.id, event.id));
+		(savedEvent as { meetingId?: string | null }).meetingId = meeting.id;
 	}
 	return NextResponse.json({ event: savedEvent });
 }

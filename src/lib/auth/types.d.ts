@@ -16,6 +16,8 @@ export type SessionUser = {
 	canManageUsers: boolean;
 	calendarEnabled: boolean;
 	driveEnabled: boolean;
+	meetEnabled: boolean;
+	lastSeenAt: Date | null;
 	keyboardShortcutsEnabled: boolean;
 	spamProtectionEnabled: boolean;
 	trashRetentionDays: number | null;

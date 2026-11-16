@@ -1,6 +1,8 @@
 import { DurableObject } from "cloudflare:workers";
 import { getUserMailRevision } from "./revision";
 import type { NewMessageNotification, AgentDraftNotification, RevisionPing, RevisionNotification } from "./types";
+import { markPresence } from "@/lib/meet/realtime";
+import { touchLastSeen } from "@/lib/meet/data";
 
 export class RealtimeHub extends DurableObject<CloudflareEnv> {
 	async fetch(request: Request): Promise<Response> {
@@ -18,6 +20,9 @@ export class RealtimeHub extends DurableObject<CloudflareEnv> {
 			if (!userId) return new Response("Unauthorized", { status: 401 });
 			this.ctx.acceptWebSocket(server);
 			server.serializeAttachment({ userId });
+			if (this.ctx.getWebSockets().length === 1) {
+				this.ctx.waitUntil(markPresence(this.env, userId, true).catch(() => undefined));
+			}
 
 			return new Response(null, { status: 101, webSocket: client });
 		}
@@ -45,6 +50,11 @@ export class RealtimeHub extends DurableObject<CloudflareEnv> {
 			socket.send("pong");
 			return;
 		}
+		if (message === "meet.ping") {
+			const attachment = socket.deserializeAttachment() as { userId?: string } | null;
+			if (attachment?.userId) this.ctx.waitUntil(touchLastSeen(this.env, attachment.userId).catch(() => undefined));
+			return;
+		}
 		if (typeof message !== "string") return;
 		let ping: RevisionPing;
 		try {
@@ -61,6 +71,15 @@ export class RealtimeHub extends DurableObject<CloudflareEnv> {
 			socket.send(JSON.stringify(notification));
 		} catch {
 			socket.close(1011, "Revision lookup failed");
+		}
+	}
+
+	async webSocketClose(socket: WebSocket): Promise<void> {
+		if (this.ctx.getWebSockets().every((other) => other === socket)) {
+			const attachment = socket.deserializeAttachment() as { userId?: string } | null;
+			if (attachment?.userId) {
+				this.ctx.waitUntil(markPresence(this.env, attachment.userId, false).catch(() => undefined));
+			}
 		}
 	}
 }

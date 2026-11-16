@@ -361,6 +361,58 @@
       "statements": [
         "ALTER TABLE \"messages\" ADD COLUMN \"invite_response\" text;"
       ]
+    },
+    {
+      "name": "0012_meet.sql",
+      "statements": [
+        "CREATE TABLE \"meet_calls\" (\r\n\t\"id\" text PRIMARY KEY NOT NULL,\r\n\t\"meeting_id\" text NOT NULL,\r\n\t\"initiator_id\" text NOT NULL,\r\n\t\"media_kind\" text DEFAULT 'video' NOT NULL,\r\n\t\"end_reason\" text,\r\n\t\"started_at\" bigint NOT NULL,\r\n\t\"answered_at\" bigint,\r\n\t\"ended_at\" bigint\r\n);",
+        "CREATE TABLE \"meet_conversation_members\" (\r\n\t\"id\" text PRIMARY KEY NOT NULL,\r\n\t\"conversation_id\" text NOT NULL,\r\n\t\"user_id\" text NOT NULL,\r\n\t\"role\" text DEFAULT 'member' NOT NULL,\r\n\t\"last_read_message_id\" text,\r\n\t\"joined_at\" bigint NOT NULL,\r\n\t\"last_read_at\" bigint\r\n);",
+        "CREATE TABLE \"meet_conversations\" (\r\n\t\"id\" text PRIMARY KEY NOT NULL,\r\n\t\"kind\" text DEFAULT 'group' NOT NULL,\r\n\t\"name\" text DEFAULT '' NOT NULL,\r\n\t\"meeting_id\" text,\r\n\t\"created_by_id\" text NOT NULL,\r\n\t\"last_message_at\" bigint,\r\n\t\"created_at\" bigint NOT NULL,\r\n\t\"updated_at\" bigint NOT NULL\r\n);",
+        "CREATE TABLE \"meet_meetings\" (\r\n\t\"id\" text PRIMARY KEY NOT NULL,\r\n\t\"code\" text NOT NULL,\r\n\t\"owner_id\" text NOT NULL,\r\n\t\"title\" text DEFAULT '' NOT NULL,\r\n\t\"kind\" text DEFAULT 'instant' NOT NULL,\r\n\t\"status\" text DEFAULT 'scheduled' NOT NULL,\r\n\t\"calendar_event_id\" text,\r\n\t\"conversation_id\" text,\r\n\t\"scheduled_start_at\" bigint,\r\n\t\"scheduled_end_at\" bigint,\r\n\t\"started_at\" bigint,\r\n\t\"ended_at\" bigint,\r\n\t\"created_at\" bigint NOT NULL\r\n);",
+        "CREATE TABLE \"meet_messages\" (\r\n\t\"id\" text PRIMARY KEY NOT NULL,\r\n\t\"conversation_id\" text NOT NULL,\r\n\t\"sender_id\" text NOT NULL,\r\n\t\"type\" text DEFAULT 'text' NOT NULL,\r\n\t\"body\" text DEFAULT '' NOT NULL,\r\n\t\"reply_to_id\" text,\r\n\t\"edited_at\" bigint,\r\n\t\"deleted_at\" bigint,\r\n\t\"created_at\" bigint NOT NULL\r\n);",
+        "CREATE TABLE \"meet_participants\" (\r\n\t\"id\" text PRIMARY KEY NOT NULL,\r\n\t\"meeting_id\" text NOT NULL,\r\n\t\"user_id\" text NOT NULL,\r\n\t\"role\" text DEFAULT 'participant' NOT NULL,\r\n\t\"state\" text DEFAULT 'invited' NOT NULL,\r\n\t\"invited_at\" bigint NOT NULL,\r\n\t\"joined_at\" bigint,\r\n\t\"left_at\" bigint\r\n);",
+        "ALTER TABLE \"users\" ADD COLUMN \"meet_enabled\" boolean DEFAULT true NOT NULL;",
+        "ALTER TABLE \"users\" ADD COLUMN \"last_seen_at\" bigint;",
+        "ALTER TABLE \"calendar_events\" ADD COLUMN \"meeting_id\" text;",
+        "ALTER TABLE \"meet_calls\" ADD CONSTRAINT \"meet_calls_meeting_id_meet_meetings_id_fk\" FOREIGN KEY (\"meeting_id\") REFERENCES \"public\".\"meet_meetings\"(\"id\") ON DELETE cascade ON UPDATE no action;",
+        "ALTER TABLE \"meet_calls\" ADD CONSTRAINT \"meet_calls_initiator_id_users_id_fk\" FOREIGN KEY (\"initiator_id\") REFERENCES \"public\".\"users\"(\"id\") ON DELETE cascade ON UPDATE no action;",
+        "ALTER TABLE \"meet_conversation_members\" ADD CONSTRAINT \"meet_conversation_members_conversation_id_meet_conversations_id_fk\" FOREIGN KEY (\"conversation_id\") REFERENCES \"public\".\"meet_conversations\"(\"id\") ON DELETE cascade ON UPDATE no action;",
+        "ALTER TABLE \"meet_conversation_members\" ADD CONSTRAINT \"meet_conversation_members_user_id_users_id_fk\" FOREIGN KEY (\"user_id\") REFERENCES \"public\".\"users\"(\"id\") ON DELETE cascade ON UPDATE no action;",
+        "ALTER TABLE \"meet_conversations\" ADD CONSTRAINT \"meet_conversations_created_by_id_users_id_fk\" FOREIGN KEY (\"created_by_id\") REFERENCES \"public\".\"users\"(\"id\") ON DELETE cascade ON UPDATE no action;",
+        "ALTER TABLE \"meet_meetings\" ADD CONSTRAINT \"meet_meetings_owner_id_users_id_fk\" FOREIGN KEY (\"owner_id\") REFERENCES \"public\".\"users\"(\"id\") ON DELETE cascade ON UPDATE no action;",
+        "ALTER TABLE \"meet_meetings\" ADD CONSTRAINT \"meet_meetings_calendar_event_id_calendar_events_id_fk\" FOREIGN KEY (\"calendar_event_id\") REFERENCES \"public\".\"calendar_events\"(\"id\") ON DELETE set null ON UPDATE no action;",
+        "ALTER TABLE \"meet_messages\" ADD CONSTRAINT \"meet_messages_conversation_id_meet_conversations_id_fk\" FOREIGN KEY (\"conversation_id\") REFERENCES \"public\".\"meet_conversations\"(\"id\") ON DELETE cascade ON UPDATE no action;",
+        "ALTER TABLE \"meet_messages\" ADD CONSTRAINT \"meet_messages_sender_id_users_id_fk\" FOREIGN KEY (\"sender_id\") REFERENCES \"public\".\"users\"(\"id\") ON DELETE cascade ON UPDATE no action;",
+        "ALTER TABLE \"meet_participants\" ADD CONSTRAINT \"meet_participants_meeting_id_meet_meetings_id_fk\" FOREIGN KEY (\"meeting_id\") REFERENCES \"public\".\"meet_meetings\"(\"id\") ON DELETE cascade ON UPDATE no action;",
+        "ALTER TABLE \"meet_participants\" ADD CONSTRAINT \"meet_participants_user_id_users_id_fk\" FOREIGN KEY (\"user_id\") REFERENCES \"public\".\"users\"(\"id\") ON DELETE cascade ON UPDATE no action;",
+        "CREATE INDEX \"meet_calls_meeting_idx\" ON \"meet_calls\" USING btree (\"meeting_id\");",
+        "CREATE INDEX \"meet_calls_initiator_idx\" ON \"meet_calls\" USING btree (\"initiator_id\");",
+        "CREATE INDEX \"meet_calls_started_idx\" ON \"meet_calls\" USING btree (\"started_at\");",
+        "CREATE UNIQUE INDEX \"meet_conversation_members_conv_user_idx\" ON \"meet_conversation_members\" USING btree (\"conversation_id\",\"user_id\");",
+        "CREATE INDEX \"meet_conversation_members_user_idx\" ON \"meet_conversation_members\" USING btree (\"user_id\");",
+        "CREATE UNIQUE INDEX \"meet_conversations_meeting_idx\" ON \"meet_conversations\" USING btree (\"meeting_id\");",
+        "CREATE INDEX \"meet_conversations_last_message_idx\" ON \"meet_conversations\" USING btree (\"last_message_at\");",
+        "CREATE UNIQUE INDEX \"meet_meetings_code_idx\" ON \"meet_meetings\" USING btree (\"code\");",
+        "CREATE INDEX \"meet_meetings_owner_idx\" ON \"meet_meetings\" USING btree (\"owner_id\");",
+        "CREATE INDEX \"meet_meetings_calendar_event_idx\" ON \"meet_meetings\" USING btree (\"calendar_event_id\");",
+        "CREATE INDEX \"meet_meetings_status_starts_idx\" ON \"meet_meetings\" USING btree (\"status\",\"scheduled_start_at\");",
+        "CREATE INDEX \"meet_messages_conv_created_idx\" ON \"meet_messages\" USING btree (\"conversation_id\",\"created_at\");",
+        "CREATE INDEX \"meet_messages_sender_idx\" ON \"meet_messages\" USING btree (\"sender_id\");",
+        "CREATE UNIQUE INDEX \"meet_participants_meeting_user_idx\" ON \"meet_participants\" USING btree (\"meeting_id\",\"user_id\");",
+        "CREATE INDEX \"meet_participants_user_idx\" ON \"meet_participants\" USING btree (\"user_id\");"
+      ]
+    },
+    {
+      "name": "0013_meet_member_flags.sql",
+      "statements": [
+        "ALTER TABLE \"meet_conversation_members\" ADD COLUMN \"muted_at\" timestamp;\nALTER TABLE \"meet_conversation_members\" ADD COLUMN \"pinned_at\" timestamp;\nCREATE TABLE \"meet_user_blocks\" (\n\t\"id\" varchar(191) PRIMARY KEY NOT NULL,\n\t\"user_id\" varchar(191) NOT NULL,\n\t\"blocked_user_id\" varchar(191) NOT NULL,\n\t\"created_at\" timestamp NOT NULL,\n\tCONSTRAINT \"meet_user_blocks_user_id_users_id_fk\" FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE cascade,\n\tCONSTRAINT \"meet_user_blocks_blocked_user_id_users_id_fk\" FOREIGN KEY (\"blocked_user_id\") REFERENCES \"users\"(\"id\") ON DELETE cascade\n);\nCREATE UNIQUE INDEX \"meet_user_blocks_user_blocked_idx\" ON \"meet_user_blocks\" (\"user_id\",\"blocked_user_id\");\nCREATE INDEX \"meet_user_blocks_blocked_idx\" ON \"meet_user_blocks\" (\"blocked_user_id\");"
+      ]
+    },
+    {
+      "name": "0014_meet_archive.sql",
+      "statements": [
+        "ALTER TABLE \"meet_conversation_members\" ADD COLUMN \"archived_at\" timestamp;"
+      ]
     }
   ]
 }

@@ -14,6 +14,7 @@ export type CurrentUser = {
 	canManageUsers: boolean;
 	calendarEnabled: boolean;
 	driveEnabled: boolean;
+	meetEnabled: boolean;
 	hasAvatar: boolean;
 };
 

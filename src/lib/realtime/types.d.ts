@@ -36,3 +36,68 @@ export interface RealtimeNotificationRequest {
 	userIds: string[];
 	payload: NewMessageNotification | AgentDraftNotification;
 }
+
+/* Meet: chat, presence, call and WebRTC signaling payloads ride the same per-user channel. */
+
+export interface MeetChatNotification {
+	type: "meet.chat";
+	conversationId: string;
+	message: import("../meet/data").MeetMessageDto;
+	event?: "created" | "edited" | "deleted";
+}
+
+export interface MeetTypingNotification {
+	type: "meet.typing";
+	conversationId: string;
+	userId: string;
+	name: string;
+	isTyping: boolean;
+}
+
+export interface MeetPresenceNotification {
+	type: "meet.presence";
+	userId: string;
+	online: boolean;
+	lastSeenAt: number | null;
+}
+
+export interface MeetSignalNotification {
+	type: "meet.signal";
+	meetingId: string;
+	from: string;
+	payload: unknown;
+}
+
+export interface MeetCallNotification {
+	type: "meet.call";
+	callId: string;
+	meetingId: string;
+	action: "ringing" | "answered" | "declined" | "ended" | "cancelled";
+	from: { id: string; name: string };
+	mediaKind: "audio" | "video";
+	title: string;
+}
+
+export interface MeetRoomNotification {
+	type: "meet.room";
+	meetingId: string;
+	event: "peer-joined" | "peer-left" | "peer-state" | "ended";
+	userId: string;
+	name?: string;
+	state?: Record<string, unknown>;
+}
+
+export interface MeetConversationNotification {
+	type: "meet.conversation";
+	conversationId: string;
+	event: "created" | "updated" | "deleted";
+}
+
+export type MeetNotification =
+	| MeetChatNotification
+	| MeetTypingNotification
+	| MeetPresenceNotification
+	| MeetSignalNotification
+	| MeetCallNotification
+	| MeetRoomNotification
+	| MeetConversationNotification;

@@ -34,6 +34,7 @@ export const users = sqliteTable("users", {
 	// Apps an admin can hide per account. Off removes the nav entry and blocks the app's API.
 	calendarEnabled: bool("calendar_enabled").notNull().default(true),
 	driveEnabled: bool("drive_enabled").notNull().default(true),
+	meetEnabled: bool("meet_enabled").notNull().default(true),
 	keyboardShortcutsEnabled: bool("keyboard_shortcuts_enabled").notNull().default(true),
 	spamProtectionEnabled: bool("spam_protection_enabled").notNull().default(true),
 	/** Days a message may stay in Trash or Spam before the scheduled purge deletes it; null keeps it forever. */
@@ -61,6 +62,8 @@ export const users = sqliteTable("users", {
 	 */
 	securityVersion: integer("security_version").notNull().default(0),
 	lastSignInAt: timestamp("last_sign_in_at"),
+	/** Maintained by the realtime hub for Meet presence; not a sign-in timestamp. */
+	lastSeenAt: timestamp("last_seen_at"),
 	// Set when an admin deletes the account. The account is also `disabled` and can be restored until the
 	// retention window ends, after which the scheduled purge removes it and its data.
 	deletedAt: timestamp("deleted_at"),
@@ -660,6 +663,8 @@ export const calendarEvents = sqliteTable(
 		inviteSequence: integer("invite_sequence"),
 		/** JSON map of guest address to accepted, tentative or declined, filled from their replies to an invitation this user sent. */
 		attendeeResponses: text("attendee_responses"),
+		/** Meet call attached to this event, so the calendar can show a Join button. */
+		meetingId: text("meeting_id"),
 		createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
 		updatedAt: timestamp("updated_at").notNull().$defaultFn(() => new Date()),
 	},
@@ -1310,6 +1315,146 @@ export const importJobs = sqliteTable("import_jobs", {
 	finishedAt: timestamp("finished_at"),
 }, (t) => [index("import_jobs_user_idx").on(t.userId, t.createdAt), index("import_jobs_status_idx").on(t.status, t.updatedAt)]);
 
+export const meetConversations = sqliteTable(
+	"meet_conversations",
+	{
+		id: text("id").primaryKey(),
+		kind: text("kind", { enum: ["dm", "group", "meeting"] }).notNull().default("group"),
+		name: text("name").notNull().default(""),
+		/** Set for `meeting` conversations: the meeting whose in-call chat this is. */
+		meetingId: text("meeting_id"),
+		createdById: text("created_by_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+		lastMessageAt: timestamp("last_message_at"),
+		createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
+		updatedAt: timestamp("updated_at").notNull().$defaultFn(() => new Date()),
+	},
+	(t) => [
+		uniqueIndex("meet_conversations_meeting_idx").on(t.meetingId),
+		index("meet_conversations_last_message_idx").on(t.lastMessageAt),
+	],
+);
+
+export const meetConversationMembers = sqliteTable(
+	"meet_conversation_members",
+	{
+		id: text("id").primaryKey(),
+		conversationId: text("conversation_id").notNull().references(() => meetConversations.id, { onDelete: "cascade" }),
+		userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+		role: text("role", { enum: ["owner", "member"] }).notNull().default("member"),
+		lastReadMessageId: text("last_read_message_id"),
+		joinedAt: timestamp("joined_at").notNull().$defaultFn(() => new Date()),
+		lastReadAt: timestamp("last_read_at"),
+		mutedAt: timestamp("muted_at"),
+		pinnedAt: timestamp("pinned_at"),
+		archivedAt: timestamp("archived_at"),
+	},
+	(t) => [
+		uniqueIndex("meet_conversation_members_conv_user_idx").on(t.conversationId, t.userId),
+		index("meet_conversation_members_user_idx").on(t.userId),
+	],
+);
+
+export const meetUserBlocks = sqliteTable(
+	"meet_user_blocks",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+		blockedUserId: text("blocked_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+		createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
+	},
+	(t) => [
+		uniqueIndex("meet_user_blocks_user_blocked_idx").on(t.userId, t.blockedUserId),
+		index("meet_user_blocks_blocked_idx").on(t.blockedUserId),
+	],
+);
+
+export const meetMessages = sqliteTable(
+	"meet_messages",
+	{
+		id: text("id").primaryKey(),
+		conversationId: text("conversation_id").notNull().references(() => meetConversations.id, { onDelete: "cascade" }),
+		senderId: text("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+		type: text("type", { enum: ["text", "system", "call"] }).notNull().default("text"),
+		body: text("body").notNull().default(""),
+		replyToId: text("reply_to_id"),
+		editedAt: timestamp("edited_at"),
+		deletedAt: timestamp("deleted_at"),
+		createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
+	},
+	(t) => [
+		index("meet_messages_conv_created_idx").on(t.conversationId, t.createdAt),
+		index("meet_messages_sender_idx").on(t.senderId),
+	],
+);
+
+export const meetMeetings = sqliteTable(
+	"meet_meetings",
+	{
+		id: text("id").primaryKey(),
+		/** Short code used in join-by-code and share links. */
+		code: text("code").notNull(),
+		ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+		title: text("title").notNull().default(""),
+		kind: text("kind", { enum: ["instant", "scheduled", "dm"] }).notNull().default("instant"),
+		status: text("status", { enum: ["scheduled", "live", "ended"] }).notNull().default("scheduled"),
+		/** Set for meetings scheduled from a calendar event. */
+		calendarEventId: text("calendar_event_id").references(() => calendarEvents.id, { onDelete: "set null" }),
+		/** In-call chat; created with the meeting. */
+		conversationId: text("conversation_id"),
+		scheduledStartAt: timestamp("scheduled_start_at"),
+		scheduledEndAt: timestamp("scheduled_end_at"),
+		startedAt: timestamp("started_at"),
+		endedAt: timestamp("ended_at"),
+		createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
+	},
+	(t) => [
+		uniqueIndex("meet_meetings_code_idx").on(t.code),
+		index("meet_meetings_owner_idx").on(t.ownerId),
+		index("meet_meetings_calendar_event_idx").on(t.calendarEventId),
+		index("meet_meetings_status_starts_idx").on(t.status, t.scheduledStartAt),
+	],
+);
+
+export const meetParticipants = sqliteTable(
+	"meet_participants",
+	{
+		id: text("id").primaryKey(),
+		meetingId: text("meeting_id").notNull().references(() => meetMeetings.id, { onDelete: "cascade" }),
+		userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+		role: text("role", { enum: ["host", "participant"] }).notNull().default("participant"),
+		/** A user must hold a row here before signaling will relay to them. */
+		state: text("state", { enum: ["invited", "joined", "left", "declined"] }).notNull().default("invited"),
+		invitedAt: timestamp("invited_at").notNull().$defaultFn(() => new Date()),
+		joinedAt: timestamp("joined_at"),
+		leftAt: timestamp("left_at"),
+	},
+	(t) => [
+		uniqueIndex("meet_participants_meeting_user_idx").on(t.meetingId, t.userId),
+		index("meet_participants_user_idx").on(t.userId),
+	],
+);
+
+/** Call log: one row per call attempt for history and missed-call badges. */
+export const meetCalls = sqliteTable(
+	"meet_calls",
+	{
+		id: text("id").primaryKey(),
+		meetingId: text("meeting_id").notNull().references(() => meetMeetings.id, { onDelete: "cascade" }),
+		initiatorId: text("initiator_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+		mediaKind: text("media_kind", { enum: ["audio", "video"] }).notNull().default("video"),
+		/** completed | missed | declined | failed */
+		endReason: text("end_reason"),
+		startedAt: timestamp("started_at").notNull().$defaultFn(() => new Date()),
+		answeredAt: timestamp("answered_at"),
+		endedAt: timestamp("ended_at"),
+	},
+	(t) => [
+		index("meet_calls_meeting_idx").on(t.meetingId),
+		index("meet_calls_initiator_idx").on(t.initiatorId),
+		index("meet_calls_started_idx").on(t.startedAt),
+	],
+);
+
 export const schema = {
 	users,
 	domains,
@@ -1352,4 +1497,11 @@ export const schema = {
 	agentSendApprovals,
 	mcpKeyMailboxes,
 	importJobs,
+	meetConversations,
+	meetConversationMembers,
+	meetMessages,
+	meetMeetings,
+	meetParticipants,
+	meetCalls,
+	meetUserBlocks,
 };

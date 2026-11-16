@@ -16,6 +16,12 @@ import { createNodeRuntime } from "./runtime/env";
 import { applyMigrations } from "./runtime/migrate";
 import { startScheduler } from "./runtime/scheduler";
 import { startSmtpListener } from "./runtime/smtp";
+import { handleWebdav } from "@/lib/drive/webdav";
+import { Readable } from "node:stream";
+import type { IncomingMessage, ServerResponse } from "node:http";
+
+/** WebDAV methods Next cannot route; GET/PUT/DELETE/HEAD use the route handler like everything else. */
+const WEBDAV_EDGE_METHODS = new Set(["OPTIONS", "PROPFIND", "MKCOL", "MOVE", "COPY", "LOCK", "UNLOCK"]);
 
 /**
  * The self-hosted entrypoint: one Node process serving the Next app, the
@@ -56,6 +62,28 @@ async function main() {
 	// Direct exposure must leave it unset so only the socket IP is trusted.
 	const trustProxy = ["1", "true", "yes"].includes((process.env.TRUST_PROXY ?? "").toLowerCase());
 
+	// Next.js route handlers only dispatch the standard verbs, so WebDAV's own
+	// methods are bridged to the shared handler before requests reach Next.
+	const serveWebdav = async (request: IncomingMessage, response: ServerResponse) => {
+		try {
+			const headers = new Headers();
+			for (const [key, value] of Object.entries(request.headers)) {
+				if (Array.isArray(value)) for (const entry of value) headers.append(key, entry);
+				else if (value !== undefined) headers.set(key, value);
+			}
+			const url = `http://${headers.get("host") ?? `${host}:${port}`}${request.url ?? "/"}`;
+			request.resume();
+			const webdavResponse = await handleWebdav(new Request(url, { method: request.method, headers }), env);
+			response.writeHead(webdavResponse.status, Object.fromEntries(webdavResponse.headers.entries()));
+			if (webdavResponse.body) Readable.fromWeb(webdavResponse.body as import("node:stream/web").ReadableStream).pipe(response);
+			else response.end();
+		} catch (error) {
+			console.error("WebDAV request failed", error);
+			if (!response.headersSent) response.writeHead(500);
+			response.end();
+		}
+	};
+
 	const server = createServer((request, response) => {
 		// The only client IP that cannot be forged is the socket's. Next sees
 		// re-serialized headers, so stamp the resolved IP into a private header
@@ -71,6 +99,13 @@ async function main() {
 		delete request.headers["x-forwarded-for"];
 		delete request.headers["x-mailflare-client-ip"];
 		if (clientIp) request.headers["x-mailflare-client-ip"] = clientIp;
+		// WebDAV verbs that Next route handlers cannot dispatch are served here;
+		// the standard verbs flow through app/webdav/[[...path]]/route.ts instead.
+		const { pathname } = parse(request.url ?? "/", true);
+		if ((pathname === "/webdav" || pathname?.startsWith("/webdav/") || (pathname === "/" && request.method === "OPTIONS")) && WEBDAV_EDGE_METHODS.has(request.method ?? "")) {
+			void serveWebdav(request, response);
+			return;
+		}
 		void handle(request, response, parse(request.url ?? "/", true));
 	});
 
@@ -81,6 +116,23 @@ async function main() {
 			// Next's own dev-mode HMR socket, or anything else, is not ours.
 			if (dev) app.getUpgradeHandler()(request, socket, head);
 			else socket.destroy();
+			return;
+		}
+		// Same origin policy as worker.ts: reject browser handshakes from another origin (CSWSH).
+		// Non-browser clients send no Sec-Fetch-Site/Origin and are unaffected.
+		const fetchSite = request.headers["sec-fetch-site"];
+		const wsOrigin = request.headers.origin;
+		let originOk = fetchSite !== "cross-site" && fetchSite !== "same-site";
+		if (originOk && typeof wsOrigin === "string") {
+			try {
+				originOk = new URL(wsOrigin).host === request.headers.host;
+			} catch {
+				originOk = false;
+			}
+		}
+		if (!originOk) {
+			socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+			socket.destroy();
 			return;
 		}
 		const cookie = request.headers.cookie ?? "";

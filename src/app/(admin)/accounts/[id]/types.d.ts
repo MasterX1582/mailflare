@@ -10,6 +10,7 @@ export type ManagedAccount = {
 	canManageUsers: boolean;
 	calendarEnabled: boolean;
 	driveEnabled: boolean;
+	meetEnabled: boolean;
 	forwardingEmail: string | null;
 	canForwardEmail: boolean;
 	hasAvatar: boolean;

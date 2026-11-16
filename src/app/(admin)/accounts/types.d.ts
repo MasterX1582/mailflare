@@ -34,6 +34,7 @@ export type Account = {
 	canManageUsers?: boolean;
 	calendarEnabled?: boolean;
 	driveEnabled?: boolean;
+	meetEnabled?: boolean;
 	createdAt: string;
 	lastSignInAt?: string | null;
 	deletedAt?: string | null;

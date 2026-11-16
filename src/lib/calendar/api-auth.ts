@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/cookies";
+import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
 import { authenticateApiRequest, hasScope } from "@/lib/api/key-auth";
 import type { ApiAuthResult } from "@/lib/api/key-auth-types";
 import type { CalendarAuthorization } from "./api-auth-types";
@@ -22,6 +23,7 @@ export async function authorizeCalendarRequest(env: CloudflareEnv, request: Requ
 	}
 	const user = await getCurrentUser(env, request);
 	if (!user) return { user: null, key: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+	if (request.method !== "GET" && !hasValidSessionMutationOrigin(request)) return { user: null, key: null, error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
 	const denied = calendarAccessError(user);
 	return denied ? { user: null, key: null, error: denied } : { user, key: null, error: null };
 }

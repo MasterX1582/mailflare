@@ -1,6 +1,8 @@
 import type { WebSocket } from "ws";
 import { getUserMailRevision } from "@/lib/realtime/revision";
 import type { RevisionPing, RevisionNotification } from "@/lib/realtime/types";
+import { markPresence } from "@/lib/meet/realtime";
+import { touchLastSeen } from "@/lib/meet/data";
 
 /**
  * Per-user WebSocket fan-out, standing in for the RealtimeHub Durable
@@ -18,12 +20,21 @@ export class RealtimeHubRegistry {
 
 	attach(userId: string, socket: WebSocket) {
 		const set = this.sockets.get(userId) ?? new Set();
+		const firstSocket = set.size === 0;
 		set.add(socket);
 		this.sockets.set(userId, set);
+		if (firstSocket && this.env) {
+			const env = this.env;
+			void markPresence(env, userId, true).catch(() => undefined);
+		}
 		socket.on("message", (data) => {
 			const message = data.toString();
 			if (message === "ping") {
 				socket.send("pong");
+				return;
+			}
+			if (message === "meet.ping") {
+				if (this.env) void touchLastSeen(this.env, userId).catch(() => undefined);
 				return;
 			}
 			void (async () => {
@@ -37,7 +48,13 @@ export class RealtimeHubRegistry {
 		});
 		socket.on("close", () => {
 			set.delete(socket);
-			if (set.size === 0) this.sockets.delete(userId);
+			if (set.size === 0) {
+				this.sockets.delete(userId);
+				if (this.env) {
+					const env = this.env;
+					void markPresence(env, userId, false).catch(() => undefined);
+				}
+			}
 		});
 	}
 

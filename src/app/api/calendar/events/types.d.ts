@@ -17,4 +17,6 @@ export type CalendarEventInput = {
 	endsAt: string;
 	mailboxId?: string | null;
 	from?: string;
+	/** Attach a Meet call: the API creates the meeting and stores its id on the event. */
+	addMeetCall?: boolean;
 };
